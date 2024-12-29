@@ -1,0 +1,9 @@
+matplotlib==3.8.3
+numpy==2.2.1
+pandas==2.2.3
+PyAutoGUI==0.9.54
+pygame==2.5.2
+pywin32==306
+PyYAML==6.0.2
+scipy==1.14.1
+screeninfo==0.8.1
