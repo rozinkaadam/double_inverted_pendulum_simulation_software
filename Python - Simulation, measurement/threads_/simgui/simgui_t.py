@@ -3,70 +3,85 @@ import time
 import pygame
 import ctypes
 from ctypes import wintypes
+import threading
 import win32gui
 import win32con
+import time
 from threads_.simgui.overlays import msg_overlay
 from threads_.simgui.overlays import dim_scale_overlay
 from threads_.simgui.libs import graphics_draw_figure as gdf
 from libs.varstructs.SIM_STATE import SIM_STATE
-import os
+import os 
 from screeninfo import get_monitors
 import traceback
 
-# Window title for the simulation GUI
 WIN_TITLE = "Simulation"
 
 class simgui_t(threading.Thread):
     """
-    A threaded class for managing the graphical user interface (GUI) of the simulation.
-    Handles display, user inputs, and interactions for the double inverted pendulum simulation.
+    A thread-based GUI class for simulating a double inverted pendulum on a cart.
+    
+    This class handles the graphical user interface using Pygame, manages window events,
+    and displays simulation parameters and graphics. It interacts with the simulation state
+    through the SIM_STATE object.
+    
+    Attributes:
+        SIM_STATE (SIM_STATE): Reference to the simulation state.
+        config_dict (dict): Configuration dictionary for GUI and simulation settings.
     """
 
-    # Define the RECT structure for handling window positions and sizes
+    # Define the RECT structure
     class RECT(ctypes.Structure):
-        _fields_ = [
-            ("left", ctypes.c_long),
-            ("top", ctypes.c_long),
-            ("right", ctypes.c_long),
-            ("bottom", ctypes.c_long)
-        ]
-
-    def __init__(self, config_dict, SIM_STATE_ref: SIM_STATE) -> None:
         """
-        Initializes the GUI thread with configuration data and simulation state.
+        A structure representing a rectangle, used for graphical calculations.
+        
+        Attributes:
+            left (int): Left boundary of the rectangle.
+            top (int): Top boundary of the rectangle.
+            right (int): Right boundary of the rectangle.
+            bottom (int): Bottom boundary of the rectangle.
+        """
+        _fields_ = [("left", ctypes.c_long),
+                    ("top", ctypes.c_long),
+                    ("right", ctypes.c_long),
+                    ("bottom", ctypes.c_long)]
+
+    def __init__(self, config_dict, SIM_STATE_ref):
+        """
+        Initialize the GUI thread with configuration and simulation state.
 
         Args:
-            config_dict (dict): Configuration dictionary for GUI settings.
+            config_dict (dict): Configuration settings for the GUI and simulation.
             SIM_STATE_ref (SIM_STATE): Reference to the simulation state object.
         """
         threading.Thread.__init__(self)
         self.SIM_STATE = SIM_STATE_ref
         self.config_dict = config_dict
 
-        # Callback for stopping the simulation
         self.stop_callback_function = None
         self.stop_callback_f_args = None
 
-        # Default window properties
-        self.win_w: int = self.config_dict["sim_gui_config"]["def_win_width_px"]
-        self.win_h: int = self.config_dict["sim_gui_config"]["def_win_height_px"]
-        self.win_x: int = 0
-        self.win_y: int = 0
+        # Set default properties
+        # Window properties
+        self.win_w = self.config_dict["sim_gui_config"]["def_win_width_px"]
+        self.win_h = self.config_dict["sim_gui_config"]["def_win_height_px"]
+        self.win_x = 0
+        self.win_y = 0
 
-        # Figure positioning
+        # Figure start position
         self.rect_y = self.win_h - self.config_dict["graphics_config"]["figure_pos_y_px"]
 
         self.is_fullscreen = False
+
         self.rdt_cntr_update_flag = True
         self.rdt_cntr_strt_1 = -1
         self.rdt_cntr_strt_2 = -1
 
-        # Initialize the pygame window
         self.init_pygame_panel()
 
     def set_stop_callback_function(self, stop_callback_function, *args):
         """
-        Sets a callback function to be executed when the simulation stops.
+        Set a callback function to be called when the simulation stops.
 
         Args:
             stop_callback_function (function): The callback function.
@@ -75,9 +90,9 @@ class simgui_t(threading.Thread):
         self.stop_callback_function = stop_callback_function
         self.stop_callback_f_args = args
 
-    def run(self) -> None:
+    def run(self):
         """
-        Main loop for the simulation GUI. Processes events, updates the display, and handles user inputs.
+        Main thread function to handle GUI events and updates during the simulation.
         """
         last_center_top_msg = ""
         string_tmp_1 = ""
@@ -85,7 +100,7 @@ class simgui_t(threading.Thread):
         is_active = False
         cursor_in_window = False
 
-        # Determine pendulum type for the display message
+        # Determine simulation type
         if self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM"):
             if self.config_dict["geometry_config"]["rod_b_visibile"]:
                 string_tmp_1 = "double pendulum, second rod visible"
@@ -94,333 +109,329 @@ class simgui_t(threading.Thread):
         else:
             string_tmp_1 = "single pendulum"
 
-        # Main event loop
-        while self.SIM_STATE.run_status() != 0:  # 0 - Nothing running, 1 - Static run, 2 - Simulation running
+        # Main loop for handling events and rendering
+        while self.SIM_STATE.run_status() != 0:  # 0 - Nothing running, 1 - Static run, 2 - Run simulation
             tmp_timer_for_fps_start = time.time()
 
             to_status_zero_flag = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    # Handle window close event
                     self.SIM_STATE.set_run_status(0)
                     to_status_zero_flag = True
 
                 elif event.type == pygame.VIDEORESIZE:
-                    # Handle window resize event
                     self._window_resize_listener()
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        # Start or pause simulation
+                        # Toggle simulation state between static run and running simulation
                         if self.SIM_STATE.run_status() == 1:
                             if len(self.SIM_STATE.get_data_by_key("mouse_input.dx")) > 1:
-                                self.SIM_STATE.set_run_status(2)  # Start simulation
+                                self.SIM_STATE.set_run_status(2)
 
                         elif self.SIM_STATE.run_status() == 2:
-                            self.SIM_STATE.set_run_status(1)  # Pause simulation
+                            self.SIM_STATE.set_run_status(1)
 
                     elif event.key == pygame.K_q:
-                        # Quit simulation
                         self.SIM_STATE.set_run_status(0)
                         to_status_zero_flag = True
 
                 # Check if the window is active or inactive
                 if event.type == pygame.ACTIVEEVENT:
-                    if event.state == 1:  # Focus change event
-                        is_active = bool(event.gain)  # 1 for active, 0 for inactive
+                    if event.state == 1:  # Window focus changes
+                        is_active = bool(event.gain)
 
-                # Check if the mouse is within the Pygame window
+                # Check if the mouse is over the Pygame window
                 if event.type == pygame.MOUSEMOTION:
                     cursor_in_window = pygame.mouse.get_focused()
 
             if to_status_zero_flag:
                 break
 
+            # Handle infinite space for mouse cursor
             if cursor_in_window and is_active and self.SIM_STATE.get_data_by_key("GUI_conditions.INFINITE_SPACE"):
-                # Infinite mouse movement handling
                 x, y = pygame.mouse.get_pos()
 
                 if self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["cursor_replace_flag"] == 0:
                     if x < 2:
+                        self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["cursor_replace_flag"] = 1
                         pygame.mouse.set_pos(self.win_w - 2, y)
                         self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["replace_counter"] -= 1
+                        self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["cursor_replace_flag"] = 2
                     elif x > self.win_w - 2:
+                        self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["cursor_replace_flag"] = 1
                         pygame.mouse.set_pos(2, y)
                         self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["replace_counter"] += 1
+                        self.SIM_STATE.SIM_STATE_VAR["mouse_input"]["cursor_replace_flag"] = 2
 
-            # Fill background
+            # Fill background with color
             self.window.fill(self.config_dict["sim_gui_config"]["bg_color_-"])
 
-            # Update window position
             self._window_pos_update()
 
-            # Draw the simulation figure
+            # Handle mouse input and draw pendulum
             if len(self.SIM_STATE.read_mouse_input("x", False)) > 0:
                 raw_cart_x = (self.SIM_STATE.read_mouse_input("x", True)[-1][0] -
-                              self.SIM_STATE.get_data_by_key("mouse_input.replace_counter") * (self.win_w - 2))
+                              self.SIM_STATE.get_data_by_key("mouse_input.replace_counter") * (self.win_w - 2) +
+                              self.SIM_STATE.read_PD_u_q()[2])
 
                 DoF_State = self.SIM_STATE.read_DoF_State_Stack(-1, True)[0]
                 cart_x = self.mouse_pos_to_viewport_pos(raw_cart_x)
 
-                end_a, end_b = gdf.draw_figure(
-                    self,
-                    cart_x,
-                    self.rect_y,
-                    DoF_State[0][0],
-                    DoF_State[1][0],
-                    self.SIM_STATE.get_l1(),
-                    self.SIM_STATE.get_l2(),
-                    self.config_dict["graphics_config"]["figure_config"],
-                    self.SIM_STATE.get_data_by_key("GUI_conditions.dim_scale"),
-                    self.config_dict["geometry_config"]["mass_visibile"],
-                    self.config_dict["geometry_config"]["rod_a_visibile"],
-                    self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM") and self.config_dict["geometry_config"]["rod_b_visibile"],
-                    self.SIM_STATE.get_data_by_key("GUI_conditions.INFINITE_SPACE")
-                )
+                end_a, end_b = gdf.draw_figure(self,
+                                               cart_x,
+                                               self.rect_y,
+                                               DoF_State[0][0],
+                                               DoF_State[1][0],
+                                               self.SIM_STATE.get_l1(),
+                                               self.SIM_STATE.get_l2(),
+                                               self.config_dict["graphics_config"]["figure_config"],
+                                               self.SIM_STATE.get_data_by_key("GUI_conditions.dim_scale"),
+                                               self.config_dict["geometry_config"]["mass_visibile"],
+                                               self.config_dict["geometry_config"]["rod_a_visibile"],
+                                               self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM") and
+                                               self.config_dict["geometry_config"]["rod_b_visibile"],
+                                               self.SIM_STATE.get_data_by_key("GUI_conditions.INFINITE_SPACE"))
 
-            # Display static or simulation messages
-            if self.SIM_STATE.run_status() == 1:  # Static run
+            # Display messages and overlay information
+            if self.SIM_STATE.run_status() == 1:
                 self.rdt_cntr_update_flag = True
-                msg_overlay.msg_center(self, "Press SPACE to start the simulation or Q to quit")
-
-            elif self.SIM_STATE.run_status() == 2:  # Simulation running
+                msg_overlay.msg_center(self, "Press...\nSPACE - start a new simulation\nQ - quit")
+            elif self.SIM_STATE.run_status() == 2:
+                self.check_for_length_decrease()
                 last_center_top_msg = f"{time.time() - self.SIM_STATE.get_data_by_key('run_conditions.simulation_timer')['start']:.2f} s"
 
             msg_overlay.msg_center_top(self, last_center_top_msg)
 
-            # Update right-top overlay messages
-            msg_right_top_str = f"{self.SIM_STATE.SIM_STATE_VAR['meta']['SIM_TITLE']}\n{string_tmp_1}"
-            msg_overlay.msg_left_top(self, msg_right_top_str)
-
-            # Update dimension scale overlay
-            x_axis_start_pos, x_axis_end_pos, y_axis_start_pos, y_axis_end_pos, x_axis_length_in_m, y_axis_length_in_m, x_axis_unti, y_axis_unti, rot_ref_end_pos, phi_ref_deg_rounded = dim_scale_overlay.calculate_dim_scale_props(
-                self, 10, self.rect_y, self.SIM_STATE.get_data_by_key("GUI_conditions.dim_scale"))
-            dim_scale_overlay.draw_dim_scale(self, x_axis_start_pos, x_axis_end_pos, y_axis_start_pos, y_axis_end_pos, x_axis_length_in_m, y_axis_length_in_m, x_axis_unti, y_axis_unti, rot_ref_end_pos, phi_ref_deg_rounded)
-
-            # Refresh display
+            msg_right_top_str=f"{self.SIM_STATE.SIM_STATE_VAR["meta"]["SIM_TITLE"]}\n{string_tmp_1}"
+            if self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM"):
+                msg_right_top_str+=f"\nrod a length [m]: {self.SIM_STATE.get_l1():.2f}"
+                msg_right_top_str+=f"\nrod b length [m]: {self.SIM_STATE.get_l2():.2f}"
+            else:
+                msg_right_top_str+=f"\nrod a length [m]: {self.SIM_STATE.get_l1():.2f}"
+            
+            msg_right_top_str+=f"\ntime delay [s]: {self.config_dict["simulation_config"]["time_delay_s"]:.2f}"
+            msg_right_top_str+=f"\nnumeric method: {self.SIM_STATE.get_data_by_key("simulation_config.NUM_METHOD")}"
+            msg_right_top_str+=f"\nresolution [px]: {self.SIM_STATE.get_data_by_key("GUI_conditions.WIN_DIMS")}"
+            msg_right_top_str+=f"\nfps: {self.SIM_STATE.get_data_by_key("run_conditions.fps"):.2f}"
+            if self.SIM_STATE.get_data_by_key("PD_control.PD_CONTROL_ON"):
+                msg_right_top_str+=f"\nControl method: {self.SIM_STATE.get_data_by_key("PD_control.CONTROL_METHOD")}"
+                msg_right_top_str+=f"\ntimedelay: {(self.SIM_STATE.get_frame_trim(True)*self.SIM_STATE.get_data_by_key("simulation_config.SAMPLERATE_S")):.3f} s"
+                msg_right_top_str+=f"\n -> K: [{self.SIM_STATE.get_data_by_key("PD_control.PD_K_1"):.2f}, {self.SIM_STATE.get_data_by_key("PD_control.PD_K_2"):.2f}, {self.SIM_STATE.get_data_by_key("PD_control.PD_K_3"):.2f}, {self.SIM_STATE.get_data_by_key("PD_control.PD_K_4"):.2f}]"
+            else:
+                msg_right_top_str+=f"\nWithout control loop."
+            msg_overlay.msg_left_top(self,msg_right_top_str)
+            
+            x_axis_start_pos, x_axis_end_pos, y_axis_start_pos, y_axis_end_pos,x_axis_length_in_m,y_axis_length_in_m,x_axis_unti,y_axis_unti,rot_ref_end_pos, phi_ref_deg_rounded=dim_scale_overlay.calculate_dim_scale_props(
+                self,10,self.rect_y,self.SIM_STATE.get_data_by_key("GUI_conditions.dim_scale"))
+            dim_scale_overlay.draw_dim_scale(self,x_axis_start_pos, x_axis_end_pos, y_axis_start_pos, y_axis_end_pos,x_axis_length_in_m,y_axis_length_in_m,x_axis_unti,y_axis_unti,rot_ref_end_pos, phi_ref_deg_rounded)
+            
             pygame.display.flip()
             self.clock.tick(60)
 
-            # Update FPS
-            divider = (time.time() - tmp_timer_for_fps_start)
-            self.SIM_STATE.set_data_by_key("run_conditions.fps", 1 / max(divider, 1e-6))
+            divider = time.time() - tmp_timer_for_fps_start
+            if divider < 0.00000001:
+                divider = 0.00000001
+            self.SIM_STATE.set_data_by_key("run_conditions.fps", 1 / divider)
 
         if self.stop_callback_function is not None:
             self.stop_callback_function()
 
         simgui_t.pygame_quit()
         print("SimGUI thread finished.")
-def pygame_quit():
-    """
-    Safely quits the Pygame window and handles any potential exceptions.
-    """
-    print("SimGUI thread: Close pygame panel...")
-    try:
-        pygame.quit()
-    except Exception as e:
-        traceback.print_exc()
-        print(f"Error: {e}")
+        
+    def pygame_quit():
+        """
+        Safely quit the Pygame environment and close the GUI panel.
 
-def set_cursor_visibility(self, visible):
-    """
-    Sets the visibility of the cursor in the Pygame window.
+        This function ensures that Pygame resources are properly released
+        and prints a message indicating the closure process.
+        """
+        print("SimGUI thread: Close pygame panel...")
+        try:
+            pygame.quit()
+        except Exception as e:
+            traceback.print_exc()
+            print(f"Error: {e}")
 
-    Parameters:
-        visible (bool): If True, the cursor is visible; otherwise, it is hidden.
-    """
-    pygame.mouse.set_visible(visible)
+    def set_cursor_visibility(self, visible):
+        """
+        Set the visibility of the mouse cursor in the Pygame window.
 
-def maximize_pygame_window(self):
-    """
-    Maximizes the Pygame window using Windows API.
-    """
-    win32gui.ShowWindow(self.hwnd, win32con.SW_MAXIMIZE)
+        Args:
+            visible (bool): If True, the cursor is visible; otherwise, it is hidden.
+        """
+        pygame.mouse.set_visible(visible)
+    
+    def maximize_pygame_window(self):
+        """
+        Maximize the Pygame window using Windows-specific API.
+        """
+        win32gui.ShowWindow(self.hwnd, win32con.SW_MAXIMIZE)
 
-def toggle_fullscreen(self):
-    """
-    Toggles between fullscreen and windowed mode.
-    """
-    self.set_fullscreen(not self.is_fullscreen)
+    def toggle_fullscreen(self):
+        """
+        Toggle the fullscreen mode of the Pygame window.
+        """
+        self.set_fullscreen(not self.is_fullscreen)
 
-def set_fullscreen(self, fullscreen=True):
-    """
-    Sets the window to fullscreen or resizable mode.
+    def set_fullscreen(self, fullscreen=True):
+        """
+        Set the Pygame window to fullscreen or resizable mode.
 
-    Parameters:
-        fullscreen (bool): If True, enables fullscreen mode; otherwise, sets resizable mode.
-    """
-    if self.is_fullscreen != fullscreen:
-        if fullscreen:
-            pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+        Args:
+            fullscreen (bool): If True, the window is set to fullscreen mode; otherwise, it is resizable.
+        """
+        if self.is_fullscreen != fullscreen:
+            if fullscreen:
+                pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+            else:
+                pygame.display.set_mode((self.win_w, self.win_h), pygame.RESIZABLE)
+            self.is_fullscreen = fullscreen
+
+    def init_pygame_panel(self):
+        """
+        Initialize the Pygame panel with window settings and graphical configurations.
+
+        This function configures the Pygame window's position, dimensions, and rendering properties.
+        It also sets up the Windows API for additional functionalities.
+        """
+        monitors = get_monitors()
+        open_on_monitor_id = self.config_dict["sim_gui_config"]["open_on_monitor_id"]
+
+        # Initialize Pygame
+        pygame.init()
+
+        if len(monitors) > open_on_monitor_id:
+            target_monitor = monitors[open_on_monitor_id]
+            os.environ['SDL_VIDEO_WINDOW_POS'] = f"{target_monitor.x},{target_monitor.y}"
+
+        # Create Pygame window
+        self.window = pygame.display.set_mode((self.win_w, self.win_h), pygame.RESIZABLE)
+        pygame.display.set_caption(WIN_TITLE)
+        
+        # Get the window handle (HWND)
+        self.hwnd = pygame.display.get_wm_info()['window']
+
+        # Hide the cursor or set fullscreen based on conditions
+        if self.SIM_STATE.get_data_by_key("GUI_conditions.INFINITE_SPACE") or self.SIM_STATE.get_data_by_key("GUI_conditions.FULLSCREEN"):
+            self.set_fullscreen(True)
+            self.set_cursor_visibility(False)
         else:
-            pygame.display.set_mode((self.win_w, self.win_h), pygame.RESIZABLE)
-        self.is_fullscreen = fullscreen
+            self.maximize_pygame_window()
 
-def init_pygame_panel(self):
-    """
-    Initializes the Pygame window with specified configurations and positions it on the correct monitor.
-    """
-    monitors = get_monitors()
-    open_on_monitor_id = self.config_dict["sim_gui_config"]["open_on_monitor_id"]
+        # Define necessary Windows API functions and constants
+        self.GetWindowLong = ctypes.windll.user32.GetWindowLongW
+        self.GetWindowLong.argtypes = [wintypes.HWND, ctypes.c_int]
+        self.GetWindowLong.restype = ctypes.c_long
 
-    # Initialize Pygame
-    pygame.init()
+        self.GetWindowRect = ctypes.windll.user32.GetWindowRect
+        self.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(simgui_t.RECT)]
 
-    # Position the window on the specified monitor
-    if len(monitors) > open_on_monitor_id:
-        target_monitor = monitors[open_on_monitor_id]
-        os.environ['SDL_VIDEO_WINDOW_POS'] = f"{target_monitor.x},{target_monitor.y}"
+        # Constants for checking the maximized state
+        self.GWL_STYLE = -16
+        self.WS_MAXIMIZE = 0x01000000
+        
+        self._window_resize_listener()
 
-    # Create a resizable Pygame window
-    self.window = pygame.display.set_mode((self.win_w, self.win_h), pygame.RESIZABLE)
-    pygame.display.set_caption(WIN_TITLE)
+        self.clock = pygame.time.Clock()
+    
+    def mouse_pos_to_viewport_pos(self, mouse_pos_x):
+        """
+        Convert the mouse position to the viewport position, adjusting for window coordinates.
 
-    # Get the window handle (HWND) for further manipulations
-    self.hwnd = pygame.display.get_wm_info()['window']
+        Args:
+            mouse_pos_x (int): The x-coordinate of the mouse position.
 
-    # Set fullscreen or hide cursor if specified in the configuration
-    if self.SIM_STATE.get_data_by_key("GUI_conditions.INFINITE_SPACE") or self.SIM_STATE.get_data_by_key("GUI_conditions.FULLSCREEN"):
-        self.set_fullscreen(True)
-        self.set_cursor_visibility(False)
-    else:
-        self.maximize_pygame_window()
-
-    # Define required Windows API functions and constants
-    self.GetWindowLong = ctypes.windll.user32.GetWindowLongW
-    self.GetWindowLong.argtypes = [wintypes.HWND, ctypes.c_int]
-    self.GetWindowLong.restype = ctypes.c_long
-
-    self.GetWindowRect = ctypes.windll.user32.GetWindowRect
-    self.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(simgui_t.RECT)]
-
-    self.GWL_STYLE = -16  # Constant for getting the window style
-    self.WS_MAXIMIZE = 0x01000000  # Constant for checking maximized state
-
-    # Update window dimensions and state
-    self._window_resize_listener()
-
-    # Create a clock for managing frame rates
-    self.clock = pygame.time.Clock()
-
-def mouse_pos_to_viewport_pos(self, mouse_pos_x):
-    """
-    Converts the mouse position in screen coordinates to the corresponding viewport position.
-
-    Parameters:
-        mouse_pos_x (int): The mouse x-coordinate on the screen.
-
-    Returns:
-        int: The x-coordinate of the mouse relative to the viewport.
-    """
-    return mouse_pos_x - self.win_x
-    if self._is_maximized():
-        return mouse_pos_x
-    else:
+        Returns:
+            int: The x-coordinate adjusted to the viewport.
+        """
         return mouse_pos_x - self.win_x
 
-def _is_maximized(self):
-    """
-    Checks if the window is currently maximized.
+    def _is_maximized(self):
+        """
+        Check if the Pygame window is currently maximized.
 
-    Returns:
-        bool: True if the window is maximized, False otherwise.
-    """
-    style = self.GetWindowLong(self.hwnd, self.GWL_STYLE)
-    return (style & self.WS_MAXIMIZE) == self.WS_MAXIMIZE
+        Returns:
+            bool: True if the window is maximized, False otherwise.
+        """
+        style = self.GetWindowLong(self.hwnd, self.GWL_STYLE)
+        return (style & self.WS_MAXIMIZE) == self.WS_MAXIMIZE
 
-def _window_pos_update(self):
-    """
-    Updates the position of the simulation window on the screen by fetching its current coordinates.
-    """
-    rect = simgui_t.RECT()
-    self.GetWindowRect(self.hwnd, ctypes.byref(rect))
-    # Calculate the top-left corner (x, y) of the window
-    self.win_x, self.win_y = rect.left, rect.top
+    def _window_pos_update(self):
+        """
+        Update the position of the Pygame window by retrieving its top-left corner coordinates.
+        """
+        rect = simgui_t.RECT()
+        self.GetWindowRect(self.hwnd, ctypes.byref(rect))
+        self.win_x, self.win_y = rect.left, rect.top
 
-def _window_resize_listener(self):
-    """
-    Handles changes to the window size and updates relevant simulation parameters accordingly.
-    """
-    self.win_w, self.win_h = pygame.display.get_surface().get_size()
-    dim_scale = dim_scale_overlay.calculate_fit_dim_scale(
-        self.win_w,
-        self.win_h,
-        self.SIM_STATE.get_l1(), 
-        self.SIM_STATE.get_l2(),
-        self.config_dict["graphics_config"]["figure_config"]["mass_height_px"],
-        self.config_dict["graphics_config"]["figure_pos_y_px"],
-        self.SIM_STATE.get_data_by_key("GUI_conditions.meter_per_pixel"),
-        self.config_dict["graphics_config"]["figure_config"]["rod_section_ratio_-"],
-        self.config_dict["input_config"]["scale_rotation_-"],
-        self.config_dict["input_config"]["scale_x_axis_-"],
-        self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM") and self.config_dict["geometry_config"]["rod_b_visibile"]
-    )
-    self.SIM_STATE.set_data_by_key("GUI_conditions.dim_scale", dim_scale)
-    self.SIM_STATE.set_data_by_key("GUI_conditions.WIN_DIMS", [self.win_w, self.win_h])
-    self.rect_y = self.win_h - self.config_dict["graphics_config"]["figure_pos_y_px"]
+    def _window_resize_listener(self):
+        """
+        Update the window dimensions and adjust the simulation's dimensional scaling.
+        """
+        self.win_w, self.win_h = pygame.display.get_surface().get_size()
+        dim_scale = dim_scale_overlay.calculate_fit_dim_scale(
+                                self.win_w,
+                                self.win_h,
+                                self.SIM_STATE.get_l1(), 
+                                self.SIM_STATE.get_l2(),
+                                self.config_dict["graphics_config"]["figure_config"]["mass_height_px"],
+                                self.config_dict["graphics_config"]["figure_pos_y_px"],
+                                self.SIM_STATE.get_data_by_key("GUI_conditions.meter_per_pixel"),
+                                self.config_dict["graphics_config"]["figure_config"]["rod_section_ratio_-"],
+                                self.config_dict["input_config"]["scale_rotation_-"],
+                                self.config_dict["input_config"]["scale_x_axis_-"],
+                                self.SIM_STATE.get_data_by_key("simulation_config.DOUBLE_PENDULUM") and self.config_dict["geometry_config"]["rod_b_visibile"])
+        self.SIM_STATE.set_data_by_key("GUI_conditions.dim_scale", dim_scale)
+        self.SIM_STATE.set_data_by_key("GUI_conditions.WIN_DIMS", [self.win_w, self.win_h])
+        self.rect_y = self.win_h - self.config_dict["graphics_config"]["figure_pos_y_px"]
 
-def check_for_length_decrease(self):
-    """
-    Checks whether the rod lengths need to be decreased based on the simulation configuration and updates the lengths accordingly.
-    """
-    if not self.config_dict["simulation_config"]["constant_rod_length"]:
-        time_now = time.time()
+    def check_for_length_decrease(self):
+        """
+        Check if the lengths of the rods should be decreased over time, based on simulation configuration.
+        """
+        if not self.config_dict["simulation_config"]["constant_rod_length"]:
+            time_now = time.time()
 
-        if self.rdt_cntr_update_flag:
-            # Initialize rod lengths and counters
-            self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l1"] = []
-            self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l1"].append([
-                self.config_dict["geometry_config"]["rod_a_length_m"], 0
-            ])
-            self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l2"] = []
-            self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l2"].append([
-                self.config_dict["geometry_config"]["rod_b_length_m"], 0
-            ])
-            self.rdt_cntr_strt_1 = time_now
-            self.rdt_cntr_strt_2 = time_now
-            self.rdt_cntr_update_flag = False
-        else:
-            if self.config_dict["simulation_config"]["rod_a_dt_s"] == self.config_dict["simulation_config"]["rod_b_dt_s"]:
-                if (
-                    self.config_dict["simulation_config"]["rod_a_dt_s"] > 0.0001 and
-                    self.rdt_cntr_strt_1 + self.config_dict["simulation_config"]["rod_a_dt_s"] < time_now
-                ):
-                    self.rdt_cntr_strt_1 = time_now
-                    self.rdt_cntr_strt_2 = time_now
-                    self.rod_length_decrease_action(
-                        self.config_dict["simulation_config"]["rod_a_dl_m"],
-                        self.config_dict["simulation_config"]["rod_b_dl_m"]
-                    )
+            if self.rdt_cntr_update_flag:
+                self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l1"] = []
+                self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l1"].append([
+                    self.config_dict["geometry_config"]["rod_a_length_m"], 0])
+                self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l2"] = []
+                self.SIM_STATE.SIM_STATE_VAR["simulation_config"]["l2"].append([
+                    self.config_dict["geometry_config"]["rod_b_length_m"], 0])
+                self.rdt_cntr_strt_1 = time_now
+                self.rdt_cntr_strt_2 = time_now
+                self.rdt_cntr_update_flag = False
             else:
-                if (
-                    self.config_dict["simulation_config"]["rod_a_dt_s"] > 0.0001 and
-                    self.rdt_cntr_strt_1 + self.config_dict["simulation_config"]["rod_a_dt_s"] < time_now
-                ):
-                    self.rdt_cntr_strt_1 = time_now
-                    self.rod_length_decrease_action(
-                        self.config_dict["simulation_config"]["rod_a_dl_m"], 0
-                    )
+                if self.config_dict["simulation_config"]["rod_a_dt_s"] == self.config_dict["simulation_config"]["rod_b_dt_s"]:
+                    if self.config_dict["simulation_config"]["rod_a_dt_s"] > 0.0001 and self.rdt_cntr_strt_1 + self.config_dict["simulation_config"]["rod_a_dt_s"] < time_now:    
+                        self.rdt_cntr_strt_1 = time_now
+                        self.rdt_cntr_strt_2 = time_now
+                        self.rod_length_decrease_action(
+                            self.config_dict["simulation_config"]["rod_a_dl_m"],
+                            self.config_dict["simulation_config"]["rod_b_dl_m"])
+                else:
+                    if self.config_dict["simulation_config"]["rod_a_dt_s"] > 0.0001 and self.rdt_cntr_strt_1 + self.config_dict["simulation_config"]["rod_a_dt_s"] < time_now:
+                        self.rdt_cntr_strt_1 = time_now
+                        self.rod_length_decrease_action(self.config_dict["simulation_config"]["rod_a_dl_m"], 0)
 
-                if (
-                    self.config_dict["simulation_config"]["rod_b_dt_s"] > 0.0001 and
-                    self.rdt_cntr_strt_2 + self.config_dict["simulation_config"]["rod_b_dt_s"] < time_now
-                ):
-                    self.rdt_cntr_strt_2 = time_now
-                    self.rod_length_decrease_action(
-                        0, self.config_dict["simulation_config"]["rod_b_dl_m"]
-                    )
+                    if self.config_dict["simulation_config"]["rod_b_dt_s"] > 0.0001 and self.rdt_cntr_strt_2 + self.config_dict["simulation_config"]["rod_b_dt_s"] < time_now:
+                        self.rdt_cntr_strt_2 = time_now
+                        self.rod_length_decrease_action(0, self.config_dict["simulation_config"]["rod_b_dl_m"])
 
-def rod_length_decrease_action(self, dL1, dL2):
-    """
-    Updates the rod lengths by reducing them based on the specified values.
+    def rod_length_decrease_action(self, dL1, dL2):
+        """
+        Decrease the lengths of the rods in the simulation state.
 
-    Parameters:
-        dL1 (float): The amount by which the length of rod A should be decreased.
-        dL2 (float): The amount by which the length of rod B should be decreased.
-    """
-    l1 = self.SIM_STATE.get_l1()
-    l2 = self.SIM_STATE.get_l2()
-    if l2 is None:
-        self.SIM_STATE.update_sys_variables(l1 - dL1, None)
-    else:
-        self.SIM_STATE.update_sys_variables(l1 - dL1, l2 - dL2)
+        Args:
+            dL1 (float): Decrease in length for rod A.
+            dL2 (float): Decrease in length for rod B.
+        """
+        l1 = self.SIM_STATE.get_l1()
+        l2 = self.SIM_STATE.get_l2()
+        if l2 is None:
+            self.SIM_STATE.update_sys_variables(l1 - dL1, None)        
+        else:
+            self.SIM_STATE.update_sys_variables(l1 - dL1, l2 - dL2)

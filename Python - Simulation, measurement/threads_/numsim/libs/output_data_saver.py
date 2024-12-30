@@ -270,60 +270,65 @@ class output_data_saver:
         
         # q_array_list:
         q_a_l = SIM_STATE_VAR["mouse_input"]["q_array_list"]
-        writer.writerow(['#','mouse_input','q_array_list'])
-        writer.writerow(['*','x_m',"_"]+[d[0] for d in q_a_l])
-        writer.writerow(['*','dx_m',"_"]+[d[1] for d in q_a_l])
-        writer.writerow(['*','ddx_m',"_"]+[d[2] for d in q_a_l])
-        writer.writerow(['*','timestamp',"_"]+[d[3] for d in q_a_l])
+        if q_a_l is not None:
+            writer.writerow(['#','mouse_input','q_array_list'])
+            writer.writerow(['*','x_m',"_"]+[d[0] for d in q_a_l])
+            writer.writerow(['*','dx_m',"_"]+[d[1] for d in q_a_l])
+            writer.writerow(['*','ddx_m',"_"]+[d[2] for d in q_a_l])
+            writer.writerow(['*','timestamp',"_"]+[d[3] for d in q_a_l])
 
         # sys_state:
         sys_state_l = SIM_STATE_VAR["stateVars"]["sys_state"]
-        writer.writerow(['#','stateVars','sys_state'])
-        lngth = len(sys_state_l[0][2])
-        for i in range(lngth):
-            writer.writerow(['*',f"id_{i}","_"]+[d[2][i] for d in sys_state_l])
-        writer.writerow(['*','timestamp',"_"]+[d[3] for d in sys_state_l])
+        if sys_state_l is not None:
+            writer.writerow(['#','stateVars','sys_state'])
+            lngth = len(sys_state_l[0][2])
+            for i in range(lngth):
+                writer.writerow(['*',f"id_{i}","_"]+[d[2][i] for d in sys_state_l])
+            writer.writerow(['*','timestamp',"_"]+[d[3] for d in sys_state_l])
 
         # phi_np_array_list:
         phi_l = SIM_STATE_VAR["stateVars"]["phi_np_array_list"]
-        writer.writerow(['#','stateVars','phi_np_array_list'])
-        writer.writerow(['*',"x","phi_1"]+[d[0][0][0] for d in phi_l])
-        writer.writerow(['*',"x","phi_2"]+[d[0][1][0] for d in phi_l])
-        writer.writerow(['*',"x","dphi_1"]+[d[0][2][0] for d in phi_l])
-        writer.writerow(['*',"x","dphi_2"]+[d[0][3][0] for d in phi_l])
-        writer.writerow(['*',"dx","dphi_1"]+[d[1][0][0] for d in phi_l])
-        writer.writerow(['*',"dx","dphi_2"]+[d[1][1][0] for d in phi_l])
-        writer.writerow(['*',"dx","ddphi_1"]+[d[1][2][0] for d in phi_l])
-        writer.writerow(['*',"dx","ddphi_2"]+[d[1][3][0] for d in phi_l])
-        writer.writerow(['*',"timestamp","_"]+[d[2] for d in phi_l])
-        writer.writerow(['*',"F1","_"]+[d[3] for d in phi_l])
-        writer.writerow(['*',"ddq","_"]+[d[4] for d in phi_l])
-        
+        if phi_l is not None:
+            writer.writerow(['#','stateVars','phi_np_array_list'])
+            writer.writerow(['*',"x","phi_1"]+[d[0][0][0] for d in phi_l])
+            writer.writerow(['*',"x","phi_2"]+[d[0][1][0] for d in phi_l])
+            writer.writerow(['*',"x","dphi_1"]+[d[0][2][0] for d in phi_l])
+            writer.writerow(['*',"x","dphi_2"]+[d[0][3][0] for d in phi_l])
+            writer.writerow(['*',"dx","dphi_1"]+[d[1][0][0] for d in phi_l])
+            writer.writerow(['*',"dx","dphi_2"]+[d[1][1][0] for d in phi_l])
+            writer.writerow(['*',"dx","ddphi_1"]+[d[1][2][0] for d in phi_l])
+            writer.writerow(['*',"dx","ddphi_2"]+[d[1][3][0] for d in phi_l])
+            writer.writerow(['*',"timestamp","_"]+[d[2] for d in phi_l])
+            writer.writerow(['*',"F1","_"]+[d[3] for d in phi_l])
+            writer.writerow(['*',"ddq","_"]+[d[4] for d in phi_l])
+            
         # phi_np_array_list:
         sys_reps_l = SIM_STATE_VAR["stateVars"]["sys_reports"]
-        writer.writerow(['#','stateVars','sys_reports'])
-        writer.writerow(['*',"timestamp"    ,"_"]+[d["timestamp"    ] for d in sys_reps_l])
-        writer.writerow(['*',"M_rank"       ,"_"]+[d["M_rank"       ] for d in sys_reps_l])
-        writer.writerow(['*',"desired_poles","_"]+[d["desired_poles"] for d in sys_reps_l])
-        writer.writerow(['*',"K_gain"       ,"_"]+[str(d["K_gain"].tolist()) for d in sys_reps_l])
-        writer.writerow(['*',"LQR_Q"        ,"_"]+[str(d["LQR_Q"   ].tolist()) for d in sys_reps_l])
-        writer.writerow(['*',"LQR_R"        ,"_"]+[d["LQR_R"        ] for d in sys_reps_l])
-        writer.writerow(['*',"LQR_P_ARE"    ,"_"]+[str(d["LQR_P_ARE"   ].tolist()) for d in sys_reps_l])
-        writer.writerow(['*',"LQR_K_opt"    ,"_"]+[str(d["LQR_K_opt"].tolist()) for d in sys_reps_l])
-        writer.writerow(['*',"t_span"       ,"_"]+[d["t_span"       ] for d in sys_reps_l])
-        writer.writerow(['*',"H_inf_K"      ,"_"]+[d["H_inf_K"       ] for d in sys_reps_l])
+        if sys_reps_l is not None:
+            writer.writerow(['#','stateVars','sys_reports'])
+            writer.writerow(['*', "timestamp", "_"] + [(d["timestamp"] if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "M_rank", "_"] + [(d["M_rank"] if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "desired_poles", "_"] + [(d["desired_poles"] if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "K_gain", "_"] + [(str(d["K_gain"].tolist()) if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "LQR_Q", "_"] + [(str(d["LQR_Q"].tolist()) if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "LQR_R", "_"] + [(d["LQR_R"] if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "LQR_P_ARE", "_"] + [(str(d["LQR_P_ARE"].tolist()) if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "LQR_K_opt", "_"] + [(str(d["LQR_K_opt"].tolist()) if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "t_span", "_"] + [(d["t_span"] if d is not None else "None") for d in sys_reps_l])
+            writer.writerow(['*', "H_inf_K", "_"] + [(d["H_inf_K"] if d is not None else "None") for d in sys_reps_l])
 
         # PD_control_stack:
         PD_cs_l = SIM_STATE_VAR["PD_control"]["PD_control_stack"]
-        writer.writerow(['#','PD_control','PD_control_stack'])
-        writer.writerow(['*',"PD_phi_1_act"     ,"_"]+[d["PD_phi_1_act"] for d in PD_cs_l])
-        writer.writerow(['*',"PD_phi_2_act"     ,"_"]+[d["PD_phi_2_act"] for d in PD_cs_l])
-        writer.writerow(['*',"PD_dphi_1_act"    ,"_"]+[d["PD_dphi_1_act"] for d in PD_cs_l])
-        writer.writerow(['*',"PD_dphi_2_act"    ,"_"]+[d["PD_dphi_2_act"] for d in PD_cs_l])
-        writer.writerow(['*',"PD_u_q"           ,"u_q"]+[d["PD_u_q"][0] for d in PD_cs_l])
-        writer.writerow(['*',"PD_u_q"           ,"du_q"]+[d["PD_u_q"][1] for d in PD_cs_l])
-        writer.writerow(['*',"PD_u_q"           ,"ddu_q"]+[d["PD_u_q"][2] for d in PD_cs_l])
-        writer.writerow(['*',"PD_u_q"           ,"timestamp"]+[d["PD_u_q"][3] for d in PD_cs_l])
+        if PD_cs_l is not None:
+            writer.writerow(['#','PD_control','PD_control_stack'])
+            writer.writerow(['*',"PD_phi_1_act"     ,"_"]+[d["PD_phi_1_act"] for d in PD_cs_l])
+            writer.writerow(['*',"PD_phi_2_act"     ,"_"]+[d["PD_phi_2_act"] for d in PD_cs_l])
+            writer.writerow(['*',"PD_dphi_1_act"    ,"_"]+[d["PD_dphi_1_act"] for d in PD_cs_l])
+            writer.writerow(['*',"PD_dphi_2_act"    ,"_"]+[d["PD_dphi_2_act"] for d in PD_cs_l])
+            writer.writerow(['*',"PD_u_q"           ,"u_q"]+[d["PD_u_q"][0] for d in PD_cs_l])
+            writer.writerow(['*',"PD_u_q"           ,"du_q"]+[d["PD_u_q"][1] for d in PD_cs_l])
+            writer.writerow(['*',"PD_u_q"           ,"ddu_q"]+[d["PD_u_q"][2] for d in PD_cs_l])
+            writer.writerow(['*',"PD_u_q"           ,"timestamp"]+[d["PD_u_q"][3] for d in PD_cs_l])
 
 
     @staticmethod   

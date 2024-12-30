@@ -6,7 +6,26 @@ from matplotlib.animation import FuncAnimation
 from libs.varstructs.SIM_STATE import SIM_STATE
 
 class diag_gui_widget():
+    """
+    This class creates a GUI widget for displaying and interacting with diagnostic information
+    related to a double inverted pendulum simulation. It consists of two scrollable panels:
+    - Left panel: Displays state variables and their current values.
+    - Right panel: Displays dynamically updated plots for visualization.
+
+    Attributes:
+        left_scrollable_frame (ttk.Frame): Frame containing state variable labels.
+        updateable_labels (dict): Stores references to labels for updating displayed values.
+    """
+
     def __init__(self, root, SIM_STATE_VAR: SIM_STATE) -> None:
+        """
+        Initializes the diagnostic GUI widget, setting up two scrollable panels and populating
+        the left panel with state variable information from the simulation state.
+
+        Args:
+            root (tk.Tk or tk.Frame): Parent container for the widget.
+            SIM_STATE_VAR (SIM_STATE): Simulation state object containing state variables.
+        """
         # Clear frame root
         for widget in root.winfo_children():
             widget.destroy()
@@ -98,6 +117,12 @@ class diag_gui_widget():
         canvases = []
 
         def update_selected_lists():
+            """
+            Collects and returns the selected datasets for plotting based on user input.
+
+            Returns:
+                list: A list of selected dataset objects from SIM_STATE_VAR that are marked as plotable.
+            """
             selected_data = []
             for var in plot_vars:
                 key = var["plot_var"].get()
@@ -106,6 +131,13 @@ class diag_gui_widget():
             return selected_data
 
         def add_plot():
+            """
+            Adds a new interactive plot to the GUI, including controls for selecting data, setting the x-axis range,
+            and displaying the plot.
+
+            This function initializes a new Matplotlib figure, embeds it into a Tkinter frame, and connects it to
+            controls such as dropdown menus, sliders, and text entry for dynamic interaction.
+            """
             # Create a frame to hold the dropdown, slider, and entry horizontally
             control_frame = tk.Frame(right_scrollable_frame)
             control_frame.pack(anchor="w", padx=5, pady=(20, 0))
@@ -126,19 +158,29 @@ class diag_gui_widget():
             x_range_entry.pack(side="left", padx=(1, 0))
             x_range_entry.insert(0, x_range_slider.get())
 
-            # Link slider and entry value
+            # Define functions to synchronize slider and entry values
             def update_entry_from_slider(event):
-                # Update entry when slider is changed
+                """
+                Updates the text entry field whenever the slider value changes.
+
+                Args:
+                    event: The Tkinter event triggering the update.
+                """
                 x_range_value = x_range_slider.get()
                 if x_range_value >= 5000:
                     x_range_entry.delete(0, tk.END)
-                    x_range_entry.insert(0, "∞")
+                    x_range_entry.insert(0, "∞")  # Unicode for infinity
                 else:
                     x_range_entry.delete(0, tk.END)
                     x_range_entry.insert(0, str(x_range_value))
 
             def update_slider_from_entry(event):
-                # Update slider when entry is changed
+                """
+                Updates the slider value whenever the text entry field changes.
+
+                Args:
+                    event: The Tkinter event triggering the update.
+                """
                 try:
                     entry_value = x_range_entry.get()
                     if entry_value == "∞":
@@ -146,10 +188,10 @@ class diag_gui_widget():
                     else:
                         x_range_slider.set(int(entry_value))
                 except ValueError:
-                    pass  # Ignore if the entry does not contain a valid integer
+                    pass  # Ignore invalid input
 
             x_range_slider.bind("<Motion>", update_entry_from_slider)
-            x_range_entry.bind("<Return>", update_slider_from_entry)  # Update slider when Enter is pressed
+            x_range_entry.bind("<Return>", update_slider_from_entry)  # Update slider on pressing Enter
 
             # Create a new figure and axis for the new plot
             fig, ax = plt.subplots(figsize=(8, 3))
@@ -160,9 +202,9 @@ class diag_gui_widget():
 
             # Set the background color of the plot
             ax.set_facecolor("lightgrey")
-            fig.patch.set_facecolor("#f0f0f0")  # Set the figure background color as well
+            fig.patch.set_facecolor("#f0f0f0")
 
-            # Initialize line
+            # Initialize line for dynamic updating
             line, = ax.plot([], [], label=plot_var.get())
             lines.append(line)
 
@@ -173,7 +215,8 @@ class diag_gui_widget():
 
             control_frames.append(control_frame)
 
-            fig.tight_layout()  # Adjust layout to fit new plots
+            # Adjust layout to fit new plots
+            fig.tight_layout()
 
             # Store the slider for each plot to access in update_plot
             plot_vars.append({"plot_var": plot_var, "slider": x_range_slider, "ax": ax})
@@ -182,12 +225,19 @@ class diag_gui_widget():
             self.ani = FuncAnimation(fig, update_plot, init_func=init_plot, blit=False, interval=100)
 
         def remove_plot():
+            """
+            Removes the last plot, including its associated dropdown, control frame, line, and canvas.
+            
+            This function manages the cleanup of the GUI components and the data structures related to the plot.
+            """
             if plot_vars:
-                # Remove last dropdown, plot var, and line
+                # Remove the last dropdown variable
                 plot_vars.pop()
+                # Remove the corresponding control frame from the GUI
                 control_frame = control_frames.pop()
                 control_frame.pack_forget()
 
+                # Remove the plot line and its canvas
                 line = lines.pop()
                 canvas_plot = canvases.pop()
                 canvas_plot.get_tk_widget().pack_forget()
@@ -197,123 +247,155 @@ class diag_gui_widget():
         button_frame = tk.Frame(right_scrollable_frame)
         button_frame.pack(pady=5, padx=5, anchor="w")
 
+        # Button to add a new plot
         button_add = tk.Button(button_frame, text="Add Plot", command=add_plot)
         button_add.pack(side="left", padx=5)
 
+        # Button to remove the last plot
         button_remove = tk.Button(button_frame, text="Remove Plot", command=remove_plot)
         button_remove.pack(side="left", padx=5)
 
-        self.paused = False
-
+        # Pause/resume button for controlling the plot animation
+        self.paused = False  # Initialize the pause state
         self.button_pause = tk.Button(button_frame, text="Pause Plotting", command=self.toggle_animation)
         self.button_pause.pack(side="left", padx=5)
 
-        # Set up the live plot with selected lists
+        # Retrieve the list of plotable datasets from the simulation state variables
         list_options = list(SIM_STATE_VAR.SIM_STATE_VAR["plotable_datasets"].keys())
-
         print(f"list_options: {list_options}")
 
-        # Function to initialize the plot limits
         def init_plot():
+            """
+            Initializes the plot by clearing all existing data from the lines.
+
+            Returns:
+                list: A list of Line2D objects with cleared data.
+            """
             for line in lines:
-                line.set_data([], [])
+                line.set_data([], [])  # Reset line data
             return lines
 
-        # Function to update the plot
         def update_plot(frame):
+            """
+            Updates the plot with new data, adjusting the axes and redrawing as needed.
+
+            Returns:
+                list: A list of Line2D objects with updated data.
+            """
             # Skip updating if paused
             if self.paused:
-                return lines  # Return the lines without updating them
-            # Get the data to plot (e.g., a list of values for y-axis)
+                return lines  # Return the lines without updating
+
+            # Retrieve the selected data for plotting
             selected_data = update_selected_lists()
 
-            # Check if there is data and the line exists
+            # Ensure there is data to plot and corresponding lines exist
             if selected_data and lines:
                 for i, data in enumerate(selected_data):
-                    if i < len(lines):  # Ensure the line exists
-                        ax = lines[i].axes
+                    if i < len(lines):  # Ensure the index is within bounds
+                        ax = lines[i].axes  # Get the axis associated with the line
                         x_data = range(len(data))
-                        
-                        # Check if data has sufficient points
-                        if len(data) > 0:
-                            # Update the line with new data
+
+                        if len(data) > 0:  # Ensure the dataset is not empty
+                            # Update the line with new data points
                             lines[i].set_data(x_data, data)
 
-                            # Get the slider value for x-axis range
+                            # Adjust x-axis range based on slider value
                             slider_value = plot_vars[i]["slider"].get()
                             if slider_value == 1000:  # Treat 1000 as "infinity"
                                 ax.set_xlim(0, len(data))
                             else:
                                 ax.set_xlim(max(0, len(data) - slider_value), len(data))
 
-                            ax.set_ylim(min(data) - 10, max(data) + 10)  # Adjust y-axis based on data range
-                            canvases[i].draw_idle()  # Update the plot display
+                            # Adjust y-axis range dynamically based on data values
+                            ax.set_ylim(min(data) - 10, max(data) + 10)
+                            canvases[i].draw_idle()  # Redraw the canvas for this line
 
             return lines
 
-
     def toggle_animation(self):
-            # Toggle the paused state
-            self.paused = not self.paused
-            # Update button text based on paused state
-            pause_button_text = "Resume Plotting" if self.paused else "Pause Plotting"
-            self.button_pause.config(text=pause_button_text)
+        """
+        Toggles the animation state between paused and running.
 
-    def update_state_var_display(self,SIM_STATE_VAR:SIM_STATE):
-        # Display state variables in the left scrollable frame
+        This method flips the `paused` attribute of the class and updates the text
+        on the pause button accordingly.
+        """
+        # Toggle the paused state
+        self.paused = not self.paused
+
+        # Update button text based on paused state
+        pause_button_text = "Resume Plotting" if self.paused else "Pause Plotting"
+        self.button_pause.config(text=pause_button_text)
+
+    def update_state_var_display(self, SIM_STATE_VAR: SIM_STATE):
+        """
+        Updates the displayed state variables in the left scrollable frame.
+
+        This method retrieves values from the provided simulation state variable object
+        and formats them appropriately for display. The method handles various data types
+        such as floats, lists, and tuples.
+
+        Parameters:
+        - SIM_STATE_VAR (SIM_STATE): The simulation state object containing the state variables.
+        """
+        # Iterate over the labels and update them with the current simulation state
         for main_key, sub_dict in self.updateable_labels.items():
             for key, _ in sub_dict.items():
-                value=SIM_STATE_VAR.SIM_STATE_VAR[main_key][key]
-                if not isinstance(value, str) and isinstance(value, list) and len(value)>0:
-                    print_val=value[-1]
+                value = SIM_STATE_VAR.SIM_STATE_VAR[main_key][key]
+
+                if not isinstance(value, str) and isinstance(value, list) and len(value) > 0:
+                    # Handle lists with non-string elements
+                    print_val = value[-1]
                     if isinstance(print_val, float):
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {print_val:.2f}")
                     elif isinstance(print_val, list):
-                        prtin_v_form=""
+                        # Format nested lists for display
+                        prtin_v_form = ""
                         for sub_pv in print_val:
                             if isinstance(sub_pv, float):
-                                prtin_v_form+=f"{sub_pv:.2f}, "
+                                prtin_v_form += f"{sub_pv:.2f}, "
                             elif isinstance(sub_pv, tuple):
-                                prtin_v_form+=f"\n("
+                                prtin_v_form += f"\n("
                                 for sub_sub_pv in sub_pv:
                                     if isinstance(sub_sub_pv, float):
-                                        prtin_v_form+=f"{sub_sub_pv:.2f}, "
+                                        prtin_v_form += f"{sub_sub_pv:.2f}, "
                                     else:
-                                        prtin_v_form+=f"{sub_sub_pv}, "
-                                prtin_v_form+=f")\n"
+                                        prtin_v_form += f"{sub_sub_pv}, "
+                                prtin_v_form += f")\n"
                             else:
-                                prtin_v_form+=f"{sub_pv}, "
-                        
+                                prtin_v_form += f"{sub_pv}, "
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {prtin_v_form}")
                     else:
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {print_val}")
-                elif isinstance(value, dict) and len(value)>0:
-                    #self.updateable_labels[main_key][key].configure(text=f"{key}: {value[-1]}")
-                    print_val=value[-1]
+
+                elif isinstance(value, dict) and len(value) > 0:
+                    # Handle dictionaries
+                    print_val = value[-1]
                     if isinstance(print_val, float):
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {print_val:.2f}")
                     elif isinstance(print_val, list):
-                        prtin_v_form=""
+                        # Format nested lists for display
+                        prtin_v_form = ""
                         for sub_pv in print_val:
                             if isinstance(sub_pv, float):
-                                prtin_v_form+=f"{sub_pv:.2f}, "
+                                prtin_v_form += f"{sub_pv:.2f}, "
                             elif isinstance(sub_pv, tuple):
-                                prtin_v_form+=f"\n("
+                                prtin_v_form += f"\n("
                                 for sub_sub_pv in sub_pv:
                                     if isinstance(sub_sub_pv, float):
-                                        prtin_v_form+=f"{sub_sub_pv:.2f}, "
+                                        prtin_v_form += f"{sub_sub_pv:.2f}, "
                                     else:
-                                        prtin_v_form+=f"{sub_sub_pv}, "
-                                prtin_v_form+=f")\n"
+                                        prtin_v_form += f"{sub_sub_pv}, "
+                                prtin_v_form += f")\n"
                             else:
-                                prtin_v_form+=f"{sub_pv}, "
-                        
+                                prtin_v_form += f"{sub_pv}, "
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {prtin_v_form}")
                     else:
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {print_val}")
+
                 else:
+                    # Handle other types, including floats and general objects
                     if isinstance(value, float):
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {value:.2f}")
                     else:
                         self.updateable_labels[main_key][key].configure(text=f"{key}: {value}")
-                

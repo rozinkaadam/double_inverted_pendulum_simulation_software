@@ -10,6 +10,7 @@ This folder contains Python scripts and tools for simulating the dynamics of the
 - **Simulation**: Implements numerical solvers for system dynamics.
 - **Measurement**: Captures human interaction data and evaluates system response.
 - **Graphical User Interface**: Allows configuration of simulation parameters, live visualization, and reaction time testing.
+- **Executable**: A precompiled executable (`exe`) for running the program on Windows can be found in the `bin` folder.
 
 For more details, see the `README.md` in the Python folder.
 
@@ -54,6 +55,7 @@ For more details, see the `README.md` in the MATLAB folder.
      ```bash
      python run.py
      ```
+   - Alternatively, you can directly run the precompiled Windows executable located in the `bin` folder.
 
 3. **MATLAB Setup**:
    - Open MATLAB and navigate to the MATLAB folder.

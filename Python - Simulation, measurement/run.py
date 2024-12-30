@@ -1,5 +1,6 @@
 import yaml
 from init_program import programIniter as pI
+import os
 
 # Path to the configuration file
 PROGRAM_CONFIG_FILE_PATH = "program_config.yaml"
@@ -16,6 +17,7 @@ def read_config_file(file_path):
     """
     config_dict = {}
     try:
+        assert os.path.isfile(file_path)
         with open(file_path, 'r') as file:
             config_dict = yaml.safe_load(file)
     except FileNotFoundError:

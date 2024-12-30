@@ -1,18 +1,19 @@
 import numpy as np
 
-def mov_eqn_single_pendulum(sys_consts_single, phi_frame:np.array, ddq):
+def mov_eqn_single_pendulum(sys_consts, phi_frame:np.array, ddq):
     """
     Computes the motion equation for a single pendulum on a cart.
 
     Parameters:
-    - sys_consts_single (tuple): System constants (C1, C2, m1, L1, g).
+    - sys_consts (tuple): System constants (C1, C2, C3, C4, C5, m1, m2, l1, l2, g).
     - phi_frame (np.array): State of the pendulum [phi, dphi, ddphi, ...].
     - ddq (float): Cart acceleration.
 
     Returns:
     - np.array: Array containing the updated state of the pendulum [dphi, ddphi].
     """
-    C1, C2, m1, L1, g = sys_consts_single
+
+    C1, C2, C3, C4, C5, m1, m2, l1, l2, g = sys_consts
 
     # Extract the angle from the state frame
     phi_frame_list = phi_frame.tolist()
@@ -27,12 +28,12 @@ def mov_eqn_single_pendulum(sys_consts_single, phi_frame:np.array, ddq):
 
     return np.array([[phi_frame_list[2][0]], [phi_frame_list[3][0]], [phi_ddot], [0]])
 
-def sys_matrices_double_pendulum(sys_consts_double, X_list, dphi1, dphi2):
+def sys_matrices_double_pendulum(sys_consts, X_list, dphi1, dphi2):
     """
     Computes the system matrices for a double pendulum on a cart.
 
     Parameters:
-    - sys_consts_double (tuple): System constants (C1, C2, C3, C4, C5, m1, m2, l1, l2, g).
+    - sys_consts (tuple): System constants (C1, C2, C3, C4, C5, m1, m2, l1, l2, g).
     - X_list (list): List of trigonometric terms [sin(phi1), cos(phi1), sin(phi2), cos(phi2), sin(phi1-phi2), cos(phi1-phi2)].
     - dphi1 (float): Angular velocity of the first pendulum.
     - dphi2 (float): Angular velocity of the second pendulum.
@@ -42,7 +43,7 @@ def sys_matrices_double_pendulum(sys_consts_double, X_list, dphi1, dphi2):
     - B (np.array): Input matrix.
     - L (np.array): External input matrix.
     """
-    C1, C2, C3, C4, C5, m1, m2, l1, l2, g = sys_consts_double
+    C1, C2, C3, C4, C5, m1, m2, l1, l2, g = sys_consts
     X1, X2, X3, X4, X5, X6 = X_list
 
     # Determinant of the system
@@ -74,12 +75,12 @@ def sys_matrices_double_pendulum(sys_consts_double, X_list, dphi1, dphi2):
 
     return A, B, L
 
-def mov_eqn_double_pendulum(sys_consts_double, phi_frame, ddq):
+def mov_eqn_double_pendulum(sys_consts, phi_frame, ddq):
     """
     Computes the motion equation for a double pendulum on a cart.
 
     Parameters:
-    - sys_consts_double (tuple): System constants (C1, C2, C3, C4, C5, m1, m2, l1, l2, g).
+    - sys_consts (tuple): System constants (C1, C2, C3, C4, C5, m1, m2, l1, l2, g).
     - phi_frame (np.array): State of the pendulums [phi1, phi2, dphi1, dphi2].
     - ddq (float): Cart acceleration.
 
@@ -101,7 +102,7 @@ def mov_eqn_double_pendulum(sys_consts_double, phi_frame, ddq):
     X6 = np.cos(phi1 - phi2)
 
     # Calculate system matrices
-    A, B, L = sys_matrices_double_pendulum(sys_consts_double, [X1, X2, X3, X4, X5, X6], dphi1, dphi2)
+    A, B, L = sys_matrices_double_pendulum(sys_consts, [X1, X2, X3, X4, X5, X6], dphi1, dphi2)
 
     # Compute the state derivative
     xdot = np.dot(A, phi_frame) + B * ddq + L

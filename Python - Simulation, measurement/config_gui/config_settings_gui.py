@@ -6,6 +6,7 @@ from init_simulation import simulationManager
 import re
 import config_gui.reaction_time_gui as reaction_time_gui
 from screeninfo import get_monitors
+import os
 
 # Constant for background color
 BRIGHT_BG = "#eaeaea"
@@ -197,7 +198,8 @@ class ConfigGUI:
             relief="raised",
             bd=2,
             activebackground="#E5B852",
-            activeforeground="black"
+            activeforeground="black",
+            state="disabled"  # Inactive state
         )
         self.playback_button.grid(row=0, column=2, padx=10, sticky="nsew")
 
@@ -493,6 +495,7 @@ class ConfigGUI:
             dict: Configuration data if successfully read, None otherwise.
         """
         try:
+            assert os.path.isfile(file_path)
             with open(file_path, 'r') as file:
                 config_dict = yaml.safe_load(file)
             print(f"Successfully read: {file_path}")

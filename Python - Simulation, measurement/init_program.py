@@ -1,5 +1,6 @@
 import yaml
 import config_gui.config_settings_gui as conf_gui
+import os
 
 class programIniter:
     """
@@ -39,6 +40,7 @@ class programIniter:
             dict: Parsed configuration dictionary if successful, None otherwise.
         """
         try:
+            assert os.path.isfile(file_path)
             with open(file_path, 'r') as file:
                 config_dict = yaml.safe_load(file)
             print(f"Successfully read: {file_path}")
